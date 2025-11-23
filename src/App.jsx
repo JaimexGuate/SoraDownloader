@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
-import { Download, AlertTriangle, Loader, RefreshCw, XCircle, Menu } from 'lucide-react'; 
+import { Download, Link, AlertCircle, Menu, X, Loader, Play, Clock, FileVideo, RefreshCw } from 'lucide-react';
 
-// Esta es la URL correcta que apunta a tu servidor de Render.
-const API_BASE_URL = 'https://soradownloader.onrender.com'; 
+// URL del Backend
+const API_BASE_URL = 'https://soradownloader.onrender.com';
 
-function App() {
+export default function App() {
+  // Estados de la lógica
   const [url, setUrl] = useState('');
   const [videoInfo, setVideoInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Estado visual del menú móvil
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // --- LÓGICA DEL NEGOCIO ---
 
   const handleFetchInfo = async () => {
     if (!url) {
@@ -23,30 +29,23 @@ function App() {
     setIsProcessing(true);
 
     try {
-      // Intenta conectar con el Backend de Render
       const response = await fetch(`${API_BASE_URL}/api/info`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Enviamos la URL del video al servidor Python
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
 
       if (!response.ok) {
-        // Manejo de errores 400s o 500s del servidor
         const errorData = await response.json();
-        const backendError = errorData.error || 'Error desconocido del servidor.';
-        throw new Error(backendError);
+        throw new Error(errorData.error || 'Error desconocido del servidor.');
       }
 
       const data = await response.json();
       setVideoInfo(data);
     } catch (err) {
       console.error("Fetch Error:", err);
-      // Muestra un error más amigable si es un fallo de red/conexión
-      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('SyntaxError')) {
-        setError('Error de conexión: No se pudo contactar con el servidor. El backend (Render) podría estar apagado o la URL podría estar mal.');
+      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        setError('Error de conexión: No se pudo contactar con el servidor. Verifica si el backend en Render está activo.');
       } else {
         setError(err.message);
       }
@@ -56,7 +55,7 @@ function App() {
     }
   };
 
-  const handleDownload = (formatUrl, title, quality) => {
+  const handleDownload = (formatUrl) => {
     window.open(formatUrl, '_blank');
   };
 
@@ -68,176 +67,221 @@ function App() {
     setIsProcessing(false);
   };
 
-  // Componente de Botón de Descarga (Estilo Adaptado)
-  const DownloadButton = ({ format, videoTitle }) => {
-    return (
-      <button
-        onClick={() => handleDownload(format.url, videoTitle, format.quality)}
-        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg shadow-md hover:from-purple-500 hover:to-indigo-500 transition duration-300 transform hover:scale-[1.03] flex items-center justify-center text-sm font-semibold"
-        title={`Descargar ${format.quality} en ${format.type}`}
-      >
-        <Download className="w-4 h-4 mr-1" />
-        {format.size}
-      </button>
-    );
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setUrl(text);
+    } catch (err) {
+      // Fallback si el navegador bloquea el acceso al portapapeles
+      console.log('Permiso de portapapeles denegado o no soportado');
+    }
   };
-  
-  // Componente de Error (Estilo Adaptado)
-  const ErrorMessage = ({ message }) => (
-    <div className="mt-8 p-4 bg-red-900/40 border border-red-700 rounded-xl flex items-start space-x-3 shadow-lg max-w-xl mx-auto">
-        <XCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-left">
-            <p className="font-bold text-red-300">Error de conexión:</p>
-            <p className="text-red-200 mt-1">{message}</p>
-        </div>
-    </div>
-  );
 
+  // --- RENDERIZADO ---
 
   return (
-    // Fondo oscuro con gradiente sutil
-    <div className="min-h-screen flex flex-col items-center bg-gray-950 text-white font-[Inter] antialiased">
+    <div className="min-h-screen bg-[#06060e] text-white font-sans selection:bg-purple-500 selection:text-white flex flex-col overflow-x-hidden">
       
-      {/* Navbar (similar a la imagen) */}
-      <nav className="w-full bg-transparent p-4 flex justify-between items-center max-w-7xl">
-        <div className="flex items-center space-x-2">
-            <Download className="w-6 h-6 text-purple-400" />
-            <span className="text-xl font-bold text-white">SoraDownloader</span>
+      {/* Navbar */}
+      <nav className="w-full px-6 py-4 flex items-center justify-between max-w-7xl mx-auto z-50 relative">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={handleReset}>
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
+            <Download size={18} className="text-white" />
+          </div>
+          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            Sora2Downloader
+          </span>
         </div>
-        <div className="hidden sm:flex space-x-6 text-gray-300 font-medium">
-            <a href="#" className="hover:text-purple-400 transition">Cómo funciona</a>
-            <a href="#" className="hover:text-purple-400 transition">FAQ</a>
+
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
+          <a href="#" className="hover:text-white transition-colors">Cómo funciona</a>
+          <a href="#" className="hover:text-white transition-colors">FAQ</a>
         </div>
-        <button className="sm:hidden text-gray-300 hover:text-purple-400">
-            <Menu className="w-6 h-6" />
+
+        <button 
+          className="md:hidden text-gray-400 hover:text-white"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </nav>
 
-      {/* Contenedor Principal Centrado */}
-      <main className="w-full max-w-4xl flex flex-col items-center text-center p-4 sm:p-8 flex-grow justify-center">
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-start px-4 text-center pt-24 pb-12 relative z-10 w-full max-w-7xl mx-auto">
         
-        {/* Sección Principal (H1 y Subtítulo) */}
-        <header className="mb-12">
-            <h1 className="text-4xl sm:text-6xl font-extrabold text-white leading-tight">
-                Descarga videos de <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-300">Sora sin marca de agua</span>
+        {/* Headlines (Solo mostrar si no hay resultados para mantener limpia la UI) */}
+        {!videoInfo && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 max-w-4xl mx-auto leading-tight">
+              Descarga videos de{' '}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 animate-pulse-slow">
+                Sora2
+              </span>{' '}
+              sin <br className="hidden md:block" />
+              marca de agua
             </h1>
-            <p className="mt-4 text-lg sm:text-xl text-gray-400 max-w-2xl font-light mx-auto">
-                La herramienta más rápida para guardar videos generados por IA en alta calidad. Gratis, ilimitado y seguro.
-            </p>
-        </header>
 
-        {/* Input y Botones de Acción (Centrados) */}
-        <div className="w-full max-w-3xl flex flex-col items-center">
-          
-          <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-            
-            <div className="flex-grow flex items-center bg-gray-800 border border-gray-700 rounded-xl shadow-xl p-1.5 max-w-2xl mx-auto">
-                <input
-                    type="url"
-                    placeholder="https://www.tiktok.com/@gattostudio_video/?..."
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    className="flex-grow p-3 bg-transparent text-white placeholder-gray-500 focus:outline-none text-left"
-                    disabled={isProcessing}
-                />
-                {/* Botón Pegar (Visual, no funcional en React, solo estético) */}
-                <button
-                    className="px-4 py-3 bg-gray-700 text-gray-400 font-semibold rounded-lg text-sm transition duration-200 hover:bg-gray-600 mr-2 disabled:opacity-50"
-                    disabled={isProcessing}
-                >
-                    Pegar
-                </button>
-                {/* Botón Descargar (Funcional) */}
-                <button
-                    onClick={handleFetchInfo}
-                    disabled={loading || isProcessing}
-                    className="flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition duration-200 disabled:bg-gray-600 disabled:cursor-not-allowed transform hover:scale-[1.01]"
-                >
-                    {loading ? (
-                        <Loader className="w-5 h-5 animate-spin mr-2" />
-                    ) : (
-                        <Download className="w-5 h-5 mr-2" />
-                    )}
-                    {loading ? 'Procesando...' : 'Descargar'}
-                </button>
+            <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-12 font-light">
+              La herramienta más rápida para guardar videos generados por IA en alta calidad.
+              <br className="hidden md:block" /> Gratis, ilimitado y seguro.
+            </p>
+          </div>
+        )}
+
+        {/* Input Area */}
+        {!videoInfo && (
+          <div className="w-full max-w-3xl flex flex-col md:flex-row gap-4 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+            <div className="relative flex-1 group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Link className="text-gray-500 group-focus-within:text-purple-400 transition-colors" size={20} />
+              </div>
+              
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={loading}
+                className="w-full bg-[#13131f] border border-gray-700/50 text-gray-200 text-sm rounded-xl py-4 pl-12 pr-20 outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all shadow-inner placeholder:text-gray-600 truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Pega el enlace de Sora aquí..."
+                onKeyDown={(e) => e.key === 'Enter' && handleFetchInfo()}
+              />
+
+              <button 
+                onClick={handlePaste}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#1f1f2e] hover:bg-[#2a2a3d] text-gray-400 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1 border border-gray-700/50"
+              >
+                Pegar
+              </button>
+            </div>
+
+            <button 
+              onClick={handleFetchInfo}
+              disabled={loading || !url}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-800 disabled:text-gray-500 disabled:shadow-none text-white font-semibold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 whitespace-nowrap min-w-[160px]"
+            >
+              {loading ? <Loader className="animate-spin" size={20} /> : <Download size={20} />}
+              {loading ? 'Procesando...' : 'Descargar'}
+            </button>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="mt-8 w-full max-w-3xl animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-4 rounded-xl text-sm flex items-start md:items-center justify-center gap-3 text-left md:text-center">
+              <AlertCircle size={20} className="shrink-0 mt-0.5 md:mt-0" />
+              <span>{error}</span>
             </div>
           </div>
-          
-          {/* Muestra el Error (Debajo del input, alineado a la izquierda del contenido) */}
-          {error && <ErrorMessage message={error} />}
+        )}
 
-          {/* Información y Formatos del Video */}
-          {videoInfo && (
-            <div className="mt-12 w-full max-w-3xl bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl text-left border border-gray-700">
+        {/* --- RESULTADOS DEL VIDEO --- */}
+        {videoInfo && (
+          <div className="w-full max-w-4xl mt-4 animate-in zoom-in-95 duration-500">
+            <div className="bg-[#13131f]/80 backdrop-blur-md border border-gray-700/50 rounded-2xl overflow-hidden shadow-2xl">
               
-              {/* Detalles del Video */}
-              <div className="flex items-start pb-4 border-b border-gray-700 mb-6">
-                <img
-                  src={videoInfo.thumbnail}
-                  alt={`Thumbnail de ${videoInfo.title}`}
-                  className="w-28 h-28 object-cover rounded-lg flex-shrink-0 mr-6 shadow-lg"
-                  onError={(e) => { 
+              {/* Header de Resultados */}
+              <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-start border-b border-gray-700/50">
+                
+                {/* Thumbnail */}
+                <div className="relative group w-full md:w-1/3 aspect-video rounded-xl overflow-hidden shadow-lg bg-black">
+                  <img 
+                    src={videoInfo.thumbnail} 
+                    alt={videoInfo.title}
+                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                    onError={(e) => { 
                       e.target.onerror = null; 
-                      e.target.src="https://placehold.co/112x112/374151/ffffff?text=Video";
-                  }}
-                />
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-2xl font-bold text-white line-clamp-2" title={videoInfo.title}>
-                    {videoInfo.title}
+                      e.target.src="https://placehold.co/600x400/1f1f2e/ffffff?text=No+Thumbnail";
+                    }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 text-white shadow-xl">
+                      <Play size={20} fill="currentColor" className="ml-1" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Texto */}
+                <div className="flex-1 text-left w-full">
+                  <h2 className="text-2xl font-bold text-white mb-3 line-clamp-2 leading-tight">
+                    {videoInfo.title || 'Video sin título'}
                   </h2>
-                  <p className="mt-2 text-md text-gray-400 font-medium">
-                    Duración: <span className="text-purple-300">{videoInfo.duration}</span>
+                  
+                  <div className="flex flex-wrap gap-3 mb-6">
+                    {videoInfo.duration && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-800 text-gray-300 text-xs font-medium border border-gray-700">
+                        <Clock size={12} />
+                        {videoInfo.duration}
+                      </div>
+                    )}
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-medium border border-indigo-500/20">
+                      <FileVideo size={12} />
+                      IA Generated
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block h-px w-full bg-gray-700/50 mb-6" />
+                  
+                  <p className="text-gray-400 text-sm hidden md:block">
+                    Selecciona una calidad a continuación para comenzar la descarga.
                   </p>
                 </div>
               </div>
 
               {/* Lista de Formatos */}
-              <div>
-                <p className="text-xl font-semibold text-gray-300 mb-4">
-                  Opciones de Descarga
-                </p>
-                
-                <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-                  {videoInfo.formats.map((format, index) => (
-                    <div
+              <div className="p-6 md:p-8 bg-[#0f0f18]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Enlaces de descarga</h3>
+                  <button 
+                    onClick={handleReset}
+                    className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors"
+                  >
+                    <RefreshCw size={12} /> Buscar otro
+                  </button>
+                </div>
+
+                <div className="grid gap-3">
+                  {videoInfo.formats?.map((format, index) => (
+                    <div 
                       key={index}
-                      className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-700/50 p-4 rounded-xl transition duration-200 hover:bg-gray-700 border border-gray-700 hover:border-purple-500/50"
+                      className="flex items-center justify-between p-4 rounded-xl bg-[#1a1a27] border border-gray-700/30 hover:border-purple-500/50 transition-all group"
                     >
-                      <div className="flex items-center mb-2 sm:mb-0">
-                        <span className={`text-xs font-bold w-16 text-center py-1 rounded-full mr-4 ${format.type === 'MP4' ? 'bg-indigo-700 text-white' : 'bg-lime-700 text-white'} shadow-md`}>
-                          {format.type}
-                        </span>
-                        <span className="text-gray-200 font-medium">{format.quality}</span>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${format.type === 'MP4' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-green-500/20 text-green-400'}`}>
+                          <span className="text-xs font-bold">{format.type}</span>
+                        </div>
+                        <div className="text-left">
+                          <div className="text-white font-medium text-sm">{format.quality}</div>
+                          <div className="text-gray-500 text-xs">{format.size || 'Tamaño desconocido'}</div>
+                        </div>
                       </div>
-                      
-                      <DownloadButton format={format} videoTitle={videoInfo.title} />
+
+                      <button
+                        onClick={() => handleDownload(format.url)}
+                        className="bg-white text-black hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
+                      >
+                        <Download size={16} />
+                        <span className="hidden sm:inline">Descargar</span>
+                      </button>
                     </div>
                   ))}
                 </div>
-
-                {/* Botón de Limpiar después de los formatos */}
-                <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={handleReset}
-                      className="flex items-center text-xs px-3 py-1.5 bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 rounded-lg transition duration-150"
-                    >
-                      <RefreshCw className="w-3 h-3 mr-1.5" />
-                      Limpiar
-                    </button>
-                </div>
-
               </div>
+
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
       </main>
 
-      {/* Pie de página */}
-      <footer className="mt-auto py-6 text-center text-sm text-gray-500 w-full">
-        <p>Desarrollado con React y Python (yt-dlp). Despliegue en Netlify y Render.</p>
+      {/* Decorative Background Elements (Glows) */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-purple-900/20 blur-[120px] rounded-full pointer-events-none -z-0 opacity-50" />
+      <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-blue-900/10 blur-[120px] rounded-full pointer-events-none -z-0" />
+
+      {/* Simple Footer */}
+      <footer className="py-6 text-center text-gray-600 text-sm relative z-10 w-full">
+        &copy; 2025 SoraDownloader. Todos los derechos reservados.
       </footer>
     </div>
   );
 }
-
-export default App;
