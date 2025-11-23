@@ -1,9 +1,10 @@
 [build]
-  command = "npm run build"
+  # Añadimos 'npm install' antes de la construcción para asegurar que
+  # todas las dependencias de React/Vite estén instaladas correctamente.
+  command = "npm install && npm run build"
   publish = "dist"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  
