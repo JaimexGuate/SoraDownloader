@@ -2,15 +2,15 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yt_dlp
 import math 
-from urllib.parse import urlparse, urlunparse # <-- ¡NUEVA IMPORTACIÓN!
+from urllib.parse import urlparse, urlunparse 
 
 app = Flask(__name__)
-CORS(app) # Permite que tu React se comunique con este servidor
+# CORRECCIÓN DE CORS FINAL: Apertura total a TODOS los orígenes ("*") para solucionar el bloqueo de red
+CORS(app, origins="*") 
 
 # Función auxiliar para manejar el tamaño del archivo de forma segura
 def safe_file_size(filesize):
-    """Convierte el tamaño del archivo de bytes a MB de forma segura."""
-    if filesize is None or filesize <= 0:
+    if filesize is None:
         return "N/A"
     
     # Intentamos la conversión y manejo de posibles errores de cálculo
