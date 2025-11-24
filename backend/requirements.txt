@@ -1,5 +1,4 @@
-
-flask
-flask-cors
-yt-dlp
-gunicorn
+Flask==3.0.3
+yt-dlp==2024.07.25
+Flask-Cors==4.0.1
+gunicorn==22.0.0
