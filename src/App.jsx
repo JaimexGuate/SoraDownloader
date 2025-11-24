@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Download, Link, AlertCircle, Menu, X, Loader, Play, Clock, FileVideo, RefreshCw } from 'lucide-react';
+// Íconos necesarios para la interfaz y la funcionalidad
+import { Download, Link, AlertCircle, Menu, X, Loader, Play, Clock, FileVideo, RefreshCw, Clipboard } from 'lucide-react';
 
 // URL del Backend
 const API_BASE_URL = 'https://soradownloader.onrender.com';
 
-export default function App() {
+function App() {
   // Estados de la lógica
   const [url, setUrl] = useState('');
   const [videoInfo, setVideoInfo] = useState(null);
@@ -12,8 +13,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Estado visual del menú móvil
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Estado visual del menú móvil (no implementado en el menú, pero se mantiene)
+  const [isMenuOpen, setIsMenuOpen] = useState(false); 
 
   // --- LÓGICA DEL NEGOCIO ---
 
@@ -28,27 +29,68 @@ export default function App() {
     setVideoInfo(null);
     setIsProcessing(true);
 
+    // Configuración de reintentos con backoff exponencial
+    const maxRetries = 3;
+    let currentRetry = 0;
+
+    const performFetch = async () => {
+        try {
+            // Espera antes de cada reintento (excepto el primero)
+            if (currentRetry > 0) {
+                const delay = Math.pow(2, currentRetry) * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+
+            // Intenta conectar con el Backend
+            const response = await fetch(`${API_BASE_URL}/api/info`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url }),
+            });
+
+            if (!response.ok) {
+                // Si el servidor responde con error, salimos de los reintentos
+                const errorData = await response.json();
+                const backendError = errorData.error || 'Error desconocido del servidor.';
+                throw new Error(backendError);
+            }
+
+            const data = await response.json();
+            setVideoInfo(data);
+            return true; // Éxito
+        } catch (err) {
+            console.error(`Fetch Error (Intento ${currentRetry + 1}):`, err);
+            // Si el error es de red y aún quedan reintentos, lo marcamos para reintentar.
+            if (currentRetry < maxRetries - 1 && 
+                (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+                currentRetry++;
+                return false; // Fallo, reintentar
+            } else {
+                // Falla definitiva (último reintento o error del backend)
+                throw err;
+            }
+        }
+    };
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
+        let success = false;
+        while (!success && currentRetry < maxRetries) {
+            success = await performFetch();
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error desconocido del servidor.');
-      }
+        if (!success) {
+             throw new Error('Fallo al conectar después de múltiples reintentos.');
+        }
 
-      const data = await response.json();
-      setVideoInfo(data);
     } catch (err) {
-      console.error("Fetch Error:", err);
-      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-        setError('Error de conexión: No se pudo contactar con el servidor. Verifica si el backend en Render está activo.');
-      } else {
-        setError(err.message);
-      }
+        // Muestra un error más amigable si es un fallo de red/conexión
+        if (err.message.includes('Fallo al conectar') || err.message.includes('Failed to fetch')) {
+          setError('Error de conexión: No se pudo contactar con el servidor. El backend (Render) podría estar inactivo o la URL es inaccesible. Inténtalo de nuevo.');
+        } else {
+          setError(err.message);
+        }
     } finally {
       setLoading(false);
       setIsProcessing(false);
@@ -67,15 +109,29 @@ export default function App() {
     setIsProcessing(false);
   };
 
+  // FUNCIÓN 1: Pegar desde el portapapeles (Implementación real con navigator.clipboard)
   const handlePaste = async () => {
+    if (isProcessing) return;
     try {
-      const text = await navigator.clipboard.readText();
-      setUrl(text);
+        const text = await navigator.clipboard.readText();
+        if (text) {
+            setUrl(text);
+            setError(null);
+        }
     } catch (err) {
-      // Fallback si el navegador bloquea el acceso al portapapeles
-      console.log('Permiso de portapapeles denegado o no soportado');
+        // Fallback si el navegador bloquea el acceso al portapapeles
+        console.error("Error al acceder al portapapeles:", err);
+        // Dejamos el error silente para no molestar al usuario si no funciona.
     }
   };
+  
+  // FUNCIÓN 2: Limpiar la URL del input (Implementación solicitada)
+  const handleClearUrl = () => {
+    if (isProcessing) return;
+    setUrl('');
+    setError(null);
+  };
+
 
   // --- RENDERIZADO ---
 
@@ -132,6 +188,8 @@ export default function App() {
         {!videoInfo && (
           <div className="w-full max-w-3xl flex flex-col md:flex-row gap-4 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
             <div className="relative flex-1 group">
+              
+              {/* Icono de Link */}
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Link className="text-gray-500 group-focus-within:text-purple-400 transition-colors" size={20} />
               </div>
@@ -146,12 +204,31 @@ export default function App() {
                 onKeyDown={(e) => e.key === 'Enter' && handleFetchInfo()}
               />
 
-              <button 
-                onClick={handlePaste}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#1f1f2e] hover:bg-[#2a2a3d] text-gray-400 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1 border border-gray-700/50"
-              >
-                Pegar
-              </button>
+              {/* Botón Pegar + Botón Limpiar */}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                <button 
+                  onClick={handlePaste}
+                  disabled={isProcessing}
+                  className="bg-[#1f1f2e] hover:bg-[#2a2a3d] text-gray-400 hover:text-white text-xs px-2 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1 border border-gray-700/50 disabled:opacity-50"
+                  title="Pegar URL del portapapeles"
+                >
+                  <Clipboard size={14} />
+                  <span className="hidden sm:inline">Pegar</span>
+                </button>
+                
+                {url && (
+                    <button 
+                        onClick={handleClearUrl}
+                        disabled={isProcessing}
+                        className="bg-[#1f1f2e] hover:bg-red-900/50 text-gray-400 hover:text-red-400 text-xs px-2 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1 border border-gray-700/50 disabled:opacity-50"
+                        title="Limpiar URL"
+                    >
+                        <X size={14} />
+                        <span className="hidden sm:inline">Limpiar</span>
+                    </button>
+                )}
+              </div>
+
             </div>
 
             <button 
@@ -240,7 +317,7 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="grid gap-3">
+                <div className="grid gap-3 max-h-96 overflow-y-auto pr-2">
                   {videoInfo.formats?.map((format, index) => (
                     <div 
                       key={index}
@@ -285,3 +362,5 @@ export default function App() {
     </div>
   );
 }
+
+export default App;
